@@ -322,31 +322,137 @@ document.getElementById("brazeAttrForm")?.addEventListener("submit", (e) => {
   console.log("[Braze][ATTRIBUTE]", { key: fd.get("key"), value: fd.get("value") });
 });
 
-// Amplitude
+// ==============================
+// Amplitude: Login + Identify(User Props) -> Track(Event)
+// - KV row (+)로 추가된 값까지 모두 전송
+// - User Property는 이벤트 전에 identify() 먼저 호출
+// ==============================
+
+// 0) 안전장치: amplitude SDK 로딩 체크
+function getAmplitudeOrWarn() {
+  if (typeof window === "undefined") return null;
+  if (typeof window.amplitude === "undefined") {
+    console.warn("[Amplitude] SDK가 로드되지 않았습니다. amplitude 객체가 없습니다.");
+    return null;
+  }
+  return window.amplitude;
+}
+
+// 1) KV list를 Object로 변환 (빈 key는 스킵)
+//    - value는 간단 타입 추정: true/false/숫자/JSON(object|array) 시도 → 실패하면 문자열
+function kvListToObject(listEl, keyName, valueName) {
+  const obj = {};
+  if (!listEl) return obj;
+
+  const keys = listEl.querySelectorAll(`input[name="${keyName}"]`);
+  const values = listEl.querySelectorAll(`input[name="${valueName}"]`);
+
+  keys.forEach((kEl, idx) => {
+    const key = (kEl.value || "").trim();
+    if (!key) return;
+
+    const raw = (values[idx]?.value || "").trim();
+
+    let parsed = raw;
+
+    // JSON object/array 시도
+    if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = raw;
+      }
+    } else if (raw === "true") parsed = true;
+    else if (raw === "false") parsed = false;
+    else if (raw !== "" && !Number.isNaN(Number(raw))) parsed = Number(raw);
+
+    obj[key] = parsed;
+  });
+
+  return obj;
+}
+
+// 2) Login: user_id 입력 받기
+//    (Web SDK 버전에 따라 setUserId/ setUserId가 다를 수 있어서 fallback 처리)
 document.getElementById("amplitudeLoginForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
-  const userId = new FormData(e.target).get("user_id");
 
-  console.log("[Amplitude][LOGIN]", { user_id: userId });
+  const amp = getAmplitudeOrWarn();
+  const userId = new FormData(e.target).get("user_id")?.toString().trim();
 
-  amplitude.setUserId(userId);
+  if (!userId) return;
+
+  console.log("[Amplitude][LOGIN] user_id =", userId);
+
+  if (!amp) return;
+
+  // 최신(브라우저 SDK)에서는 amplitude.setUserId(...) 형태가 일반적
+  if (typeof amp.setUserId === "function") {
+    amp.setUserId(userId);
+  } else if (typeof amp.getInstance === "function") {
+    // 구버전 호환
+    try {
+      amp.getInstance().setUserId(userId);
+    } catch (err) {
+      console.warn("[Amplitude] setUserId 호출 실패:", err);
+    }
+  } else {
+    console.warn("[Amplitude] setUserId API를 찾을 수 없습니다.");
+  }
 });
 
+// 3) Event 전송: user_properties(Identify) 먼저 → track 호출
 document.getElementById("amplitudeEventForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
-  const fd = new FormData(e.target);
-  console.log("[Amplitude][EVENT]", {
-    event_name: fd.get("event_name"),
-    event_properties: safeJsonParse(fd.get("event_props")),
-  });
-});
 
-document.getElementById("amplitudeUserPropsForm")?.addEventListener("submit", (e) => {
-  e.preventDefault();
+  const amp = getAmplitudeOrWarn();
   const fd = new FormData(e.target);
-  console.log("[Amplitude][USER_PROPS]", {
-    user_properties: safeJsonParse(fd.get("user_props")),
-  });
+
+  const eventName = fd.get("event_name")?.toString().trim();
+  if (!eventName) return;
+
+  // KV rows 모두 포함해서 object로 변환
+  const eventProps = kvListToObject(
+    document.getElementById("ampEventProps"),
+    "event_key[]",
+    "event_value[]"
+  );
+
+  const userProps = kvListToObject(
+    document.getElementById("ampUserProps"),
+    "user_key[]",
+    "user_value[]"
+  );
+
+  console.log("[Amplitude][FORM]", { eventName, eventProps, userProps });
+
+  if (!amp) return;
+
+  // (중요) User Property -> Identify 먼저
+  try {
+    const IdentifyCtor = amp.Identify || (amp.identify && amp.Identify); // 혹시 모르니 방어
+    const identifyEvent = new amp.Identify();
+
+    Object.entries(userProps).forEach(([k, v]) => {
+      // identifyEvent.set(key, value)
+      identifyEvent.set(k, v);
+    });
+
+    // userProps가 비어있어도 identify 호출해도 되지만,
+    // 원하면 조건 걸어서 호출 가능
+    if (Object.keys(userProps).length > 0) {
+      amp.identify(identifyEvent);
+    }
+
+    // 그 다음 이벤트 전송
+    amp.track(eventName, eventProps);
+    console.log("[Amplitude][SENT]", "identify -> track 순서로 전송 완료");
+  } catch (err) {
+    console.error("[Amplitude] identify/track 전송 실패:", err);
+
+    // identify 실패해도 event라도 보내고 싶으면 아래 주석 해제
+    // try { amp.track(eventName, eventProps); } catch (_) {}
+  }
 });
 
 
@@ -445,13 +551,13 @@ document.getElementById("amplitudeEventForm")?.addEventListener("submit", (e) =>
     ? kvListToObject(userList, "user_key[]", "user_value[]")
     : {};
 
+/*
   console.log("[Amplitude][EVENT]", {
     event_name: eventName,
     event_properties,
     user_properties,
   });
-
-  // TODO: 여기에 실제 Amplitude SDK 호출로 교체하면 끝
+*/
 });
 
 // 페이지 로드 후 기본 row의 remove 버튼 상태 업데이트(안전장치)
