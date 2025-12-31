@@ -323,6 +323,15 @@ document.getElementById("brazeAttrForm")?.addEventListener("submit", (e) => {
 });
 
 // Amplitude
+document.getElementById("amplitudeLoginForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const userId = new FormData(e.target).get("user_id");
+
+  console.log("[Amplitude][LOGIN]", { user_id: userId });
+
+  amplitude.setUserId(userId);
+});
+
 document.getElementById("amplitudeEventForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
