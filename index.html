@@ -11,7 +11,8 @@
       window.experiment = Experiment.initializeWithAmplitudeAnalytics('client-n647zNuxko1LDKdFyCrInlDpMvNOwPSt');
       window.amplitude.init('abd0527cc3b38429edfedee3fd14874f', {
         fetchRemoteConfig: true,
-        autocapture: true
+        autocapture: true,
+        loglevel: amplitude.Types.LogLevel.Debug
       });
     </script>
   </head>
@@ -276,21 +277,44 @@
         </div>
 
         <div class="modal-body">
+          <!-- Tabs -->
           <div class="tabs" role="tablist" aria-label="Amplitude 전송 탭">
-            <button class="tab is-active" type="button" role="tab" aria-selected="true" data-tab="event">Event&UserProps</button>
+            <button class="tab is-active" type="button" role="tab" aria-selected="true" data-tab="login">
+              Login
+            </button>
+            <button class="tab" type="button" role="tab" aria-selected="false" data-tab="event">
+              Event&UserProps
+            </button>
           </div>
 
           <div class="tab-panels">
-            <section class="tab-panel is-active" data-panel="event">
+            <!-- Login 탭 -->
+            <section class="tab-panel is-active" data-panel="login">
+              <p class="muted" style="margin-top:0">Amplitude Login (identify)</p>
+
+              <form id="amplitudeLoginForm">
+                <label class="field">
+                  <span>user_id</span>
+                  <input name="user_id" type="text" placeholder="예: ju_123" required />
+                </label>
+
+                <button class="btn btn-primary btn-block" type="submit">
+                  Login 전송
+                </button>
+              </form>
+            </section>
+
+            <!-- Event & UserProps 탭 -->
+            <section class="tab-panel" data-panel="event">
               <p class="muted" style="margin-top:0">Amplitude logEvent</p>
-              <!-- Amplitude Event 탭 내부 (textarea 2개 대신 아래로) -->
+
               <form id="amplitudeEventForm">
                 <label class="field">
                   <span>event_name</span>
                   <input name="event_name" type="text" placeholder="예: page_view" required />
                 </label>
 
-                <!-- event_properties (Key-Value) -->
+                <!-- event_properties -->
                 <div class="kv-block" data-kv-type="event">
                   <div class="kv-head">
                     <span class="kv-title">event_properties</span>
@@ -298,7 +322,6 @@
                   </div>
 
                   <div class="kv-list" id="ampEventProps">
-                    <!-- 기본 1쌍 -->
                     <div class="kv-row">
                       <input class="kv-input" name="event_key[]" type="text" placeholder="key (예: page)" />
                       <input class="kv-input" name="event_value[]" type="text" placeholder="value (예: home)" />
@@ -307,7 +330,7 @@
                   </div>
                 </div>
 
-                <!-- user_properties (Key-Value) -->
+                <!-- user_properties -->
                 <div class="kv-block" data-kv-type="user">
                   <div class="kv-head">
                     <span class="kv-title">user_properties</span>
@@ -315,7 +338,6 @@
                   </div>
 
                   <div class="kv-list" id="ampUserProps">
-                    <!-- 기본 1쌍 -->
                     <div class="kv-row">
                       <input class="kv-input" name="user_key[]" type="text" placeholder="key (예: membership_tier)" />
                       <input class="kv-input" name="user_value[]" type="text" placeholder="value (예: gold)" />
@@ -324,22 +346,11 @@
                   </div>
                 </div>
 
-                <button class="btn btn-primary btn-block" type="submit">Event 전송</button>
+                <button class="btn btn-primary btn-block" type="submit">
+                  Event 전송
+                </button>
               </form>
             </section>
-
-            <section class="tab-panel" data-panel="user">
-              <p class="muted" style="margin-top:0">Amplitude setUserProperties 자리</p>
-              <form id="amplitudeUserPropsForm">
-                <label class="field">
-                  <span>user_properties(JSON)</span>
-                  <textarea name="user_props" rows="4" placeholder='예: {"membership_tier":"gold"}'></textarea>
-                </label>
-                <button class="btn btn-primary btn-block" type="submit">User Props 전송</button>
-              </form>
-            </section>
-
-            <!-- attribute panel은 disabled 탭이라 굳이 없어도 됨 -->
           </div>
 
           <p class="tiny" style="margin-bottom:0">(데모) submit 시 콘솔 출력</p>
