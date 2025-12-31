@@ -11,7 +11,11 @@
       window.experiment = Experiment.initializeWithAmplitudeAnalytics('client-n647zNuxko1LDKdFyCrInlDpMvNOwPSt');
       window.amplitude.init('abd0527cc3b38429edfedee3fd14874f', {
         fetchRemoteConfig: true,
-        autocapture: true,
+        autocapture :{
+          attribution: true,
+          pageViews: true,
+          sessions: true
+        },
         loglevel: amplitude.Types.LogLevel.Debug
       });
     </script>
